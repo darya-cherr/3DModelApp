@@ -5,53 +5,70 @@ namespace WindowsFormsApp1
 {
     public class Matrix
     {
-        public Matrix4x4 GetTranslationMatrix(Vector3 position)
+       
+        float fieldOfView = (float)(60 * Math.PI / 180);
+        float aspectRatio = (float)1000 / 800;
+        float nearPlaneDistance = 0.1f;
+        float farPlaneDistance = 100f;
+        
+
+        public  Matrix4x4 GetWorldProjectionMatrix()
         {
-            var rotationXMatrix = new Matrix4x4( 
-                 1f, 0, 0, position.X,
-                 0, 1, 0, position.Y ,
-                 0, 0, 1, position.Z,
-                 0, 0, 0, 1);
-             return rotationXMatrix;
-           // return Matrix4x4.CreateTranslation(position);
+            return Matrix4x4.CreatePerspectiveFieldOfView(fieldOfView, aspectRatio, nearPlaneDistance, farPlaneDistance);
         }
 
-        public Matrix4x4 GetRotationXMatrix(Vector3 rotation)
+        private Matrix4x4 GetWorldMatrix(float scale, Vector3 rotation, Vector3 translation)
         {
-            var rotationXMatrix = new Matrix4x4( 
-                1f, 0, 0, 0,
-                0, (float)Math.Cos(rotation.X),(float) (-1 * Math.Sin(rotation.X)), 0 ,
-                0, (float)Math.Sin(rotation.X), (float)Math.Cos(rotation.X), 0,
-                0, 0, 0, 1f);
-            return rotationXMatrix;
-           // return Matrix4x4.CreateRotationX(rotation.X);
+            Matrix4x4 worldMatrix = Matrix4x4.CreateScale(scale) * Matrix4x4.CreateFromYawPitchRoll(rotation.X, rotation.Y, rotation.Z)
+                                                                              * Matrix4x4.CreateTranslation(translation.X, translation.Y, translation.Z);
+            return worldMatrix;
+        }
+        public Matrix4x4 GetMVPMatrix(float scale, Vector3 modelRotation, Vector3 modelTranslation, Vector3 cameraRotation, Vector3 cameraTranslation)
+        {
+            return GetWorldMatrix(scale, modelRotation,modelTranslation) * GetViewerMatrix(cameraRotation, cameraTranslation) * GetWorldProjectionMatrix();
+        }
+
+        private static Matrix4x4 GetViewerMatrix(Vector3 rotation, Vector3 translation)
+        {
+            return
+                Matrix4x4.CreateTranslation(-new Vector3(translation.X, translation.Y, translation.Z))
+                * Matrix4x4.Transpose(Matrix4x4.CreateFromYawPitchRoll(rotation.X, rotation.Y, rotation.Z));
         }
         
-        public Matrix4x4 GetRotationYMatrix(Vector3 rotation)
+        // private void TransformNormal( float scale, Vector3 modelRotation, Vector3 modelTranslation )
+        // {
+        //     for (int i = 0; i < model.Normals.Count; i++)
+        //     {
+        //         model.Normals[i] = Vector3.Normalize(Vector3.TransformNormal(model.Normals[i], GetWorldMatrix(scale, modelRotation,modelTranslation)));
+        //     }
+        // }
+        
+        public  Matrix4x4 GetViewPortMatrix()
         {
-            var rotationYMatrix = new Matrix4x4( 
-                (float)Math.Cos(rotation.Y), 0, (float)Math.Sin(rotation.Y), 0,
-                0, 1f, 0, 0,
-                (float)(-1f * Math.Sin(rotation.Y)), 0, (float)Math.Cos(rotation.Y), 0,
-                0, 0, 0, 1f);
-            
-             return rotationYMatrix;
-            //return Matrix4x4.CreateRotationY(rotation.Y);
+            return new Matrix4x4(
+                (float)1000/2, 0, 0, 0,
+                0, (float)-1 * 800/2, 0, 0,
+                0, 0, 1, 0,
+                (float)1000/2, (float)800/2, 0, 1);
+          
+        }
+
+        public void TransformNormal(Model model)
+        {
+            for (int i = 0; i < model.Vertexes.Count; i++)
+            {
+                model.Vertexes[i] = Vector4.Normalize(model.Vertexes[i]);
+            }
+        }
+        public  void TransformToViewPort(Model model, float[] w)
+        {
+            for (int i = 0; i < model.Vertexes.Count; i++)
+            {
+                model.Vertexes[i] = Vector4.Transform(model.Vertexes[i], GetViewPortMatrix());
+                model.Vertexes[i] = new Vector4(model.Vertexes[i].X, model.Vertexes[i].Y, model.Vertexes[i].Z, w[i]);
+            }
         }
         
-        public Matrix4x4 GetRotationZMatrix(Vector3 rotation)
-        {
-            var rotationZMatrix = new Matrix4x4( 
-                (float)Math.Cos(rotation.Z), (float)(-1f * Math.Sin(rotation.Z)), 0, 0,
-                (float)Math.Sin(rotation.Z), (float)Math.Cos(rotation.Z), 0, 0,
-                0, 0, 1f, 0,
-                0, 0, 0, 1f);
-            
-            return rotationZMatrix;
-            //return Matrix4x4.CreateRotationZ(rotation.Z);
-        }
-        
-        
-        
+
     }
 }

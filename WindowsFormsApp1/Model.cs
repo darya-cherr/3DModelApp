@@ -8,14 +8,14 @@ namespace WindowsFormsApp1
 {
     public class Model
     {
-        public List<Vector3> Vertexes = new List<Vector3>();
+        public List<Vector4> Vertexes = new List<Vector4>();
         public List<int> Fig = new List<int>();
  
         public void LoadFromObj(TextReader tr)
         {
             string line;
             Vertexes.Clear();
-            Vertexes.Add(Vector3.Zero);
+            Vertexes.Add(Vector4.Zero);
  
             IFormatProvider formatter = new NumberFormatInfo { NumberDecimalSeparator = "." };
             while ((line = tr.ReadLine()) != null)
@@ -24,9 +24,9 @@ namespace WindowsFormsApp1
                 if (parts.Length == 0) continue;
                 switch (parts[0])
                 {
-                    case "v": Vertexes.Add(new Vector3(float.Parse(parts[1], formatter),
+                    case "v": Vertexes.Add(new Vector4(float.Parse(parts[1], formatter),
                             float.Parse(parts[2], formatter),
-                            float.Parse(parts[3], formatter)));
+                            float.Parse(parts[3], formatter), parts.Length > 4 ? float.Parse(parts[4], formatter) : 1));
                         break;
                     case "f":
                         for (int i = 1; i < parts.Length; i++)

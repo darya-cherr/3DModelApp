@@ -21,12 +21,22 @@ namespace WindowsFormsApp1
     public partial class Form1 : Form
     {
         Model model;
-        TrackBar tbSize;
-        TrackBar tbRoll;
-        TrackBar tbPitch;
-        TrackBar tbYaw;
+        TrackBar tbModelSize;
+        TrackBar tbModelRoll;
+        TrackBar tbModelPitch;
+        TrackBar tbModelYaw;
+        TrackBar tbCameraRoll;
+        TrackBar tbCameraPitch;
+        TrackBar tbCameraYaw;
         Matrix matrix;
-        Drawer drawer;
+        
+        Vector3 defaultCameraPosition = new Vector3(0,0,-10);
+        Vector3 defaultCameraRotation = new Vector3(0,(float)Math.PI,(float)Math.PI);
+       
+      
+        float modelScale = 1;
+        Vector3 modelPosition = new Vector3(500, 500, 500);
+        private Vector3 modelRotation = new Vector3(10, 10, 10);
         public Form1()
         {
             
@@ -34,79 +44,88 @@ namespace WindowsFormsApp1
  
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint, true);
  
-            Size = new Size(500, 500);
+            Size = new Size(1000, 800);
  
-            tbSize = new TrackBar { Parent = this, Maximum = 200, Left = 0, Value = 50};
-            tbRoll = new TrackBar { Parent = this, Maximum = 360, Left = 110, Value = 50 };
-            tbPitch = new TrackBar { Parent = this, Maximum = 360, Left = 220, Value = 50 };
-            tbYaw = new TrackBar { Parent = this, Maximum = 360, Left = 330, Value = 50 };
+            tbModelSize = new TrackBar { Parent = this, Maximum = 200, Left = 0, Value = 30};
+            tbModelRoll = new TrackBar { Parent = this, Maximum = 360, Left = 110, Value = 0 };
+            tbModelPitch = new TrackBar { Parent = this, Maximum = 360, Left = 220, Value = 0 };
+            tbModelYaw = new TrackBar { Parent = this, Maximum = 360, Left = 330, Value = 0 };
+            
+           
+            tbCameraRoll = new TrackBar { Parent = this, Maximum = 500, Left = 850, Value = 0, TickFrequency = 1};
+            tbCameraPitch = new TrackBar { Parent = this, Maximum = 500, Left = 850, Top = 50,Value = 0, TickFrequency = 1};
+            tbCameraYaw = new TrackBar { Parent = this, Maximum = 500, Left = 850,Top = 100, Value = 0, TickFrequency = 1 };
+
+            tbModelSize.ValueChanged += TbModelValueChanged;
+            tbModelRoll.ValueChanged += TbModelValueChanged;
+            tbModelPitch.ValueChanged += TbModelValueChanged;
+            tbModelYaw.ValueChanged += TbModelValueChanged;
  
-            tbSize.ValueChanged += tb_ValueChanged;
-            tbRoll.ValueChanged += tb_ValueChanged;
-            tbPitch.ValueChanged += tb_ValueChanged;
-            tbYaw.ValueChanged += tb_ValueChanged;
+            TbModelValueChanged(null, EventArgs.Empty);
+            
+            tbCameraRoll.ValueChanged += TbCameraValueChanged;
+            tbCameraPitch.ValueChanged += TbCameraValueChanged;
+            tbCameraYaw.ValueChanged += TbCameraValueChanged;
  
-            tb_ValueChanged(null, EventArgs.Empty);
+            TbCameraValueChanged(null, EventArgs.Empty);
 
             matrix = new Matrix();
  
-            //загружаем модель из .obj
             model = new Model();
-            drawer = new Drawer();
             model.LoadFromObj(new StreamReader("C:\\Users\\Admin\\Desktop\\cherry.obj"));
         }
         
-        void tb_ValueChanged(object sender, EventArgs e)
+        void TbModelValueChanged(object sender, EventArgs e)
         {
-            scale = tbSize.Value;
-            pitch = (float)(tbPitch.Value * Math.PI / 180);
-            roll = (float)(tbRoll.Value * Math.PI / 180);
-            yaw = (float)(tbYaw.Value * Math.PI / 180);
+            modelScale = tbModelSize.Value;
+            modelRotation = new Vector3((float)(tbModelYaw.Value * Math.PI / 180),  (float)(tbModelPitch.Value * Math.PI / 180), (float)(tbModelRoll.Value * Math.PI / 180));
             Invalidate();
         }
- 
-        float yaw = 10;
-        float pitch = 10;
-        float roll = 10;
-        float scale = 1;
-        Vector3 position = new Vector3(200, 200, 200);
-
         
+        void TbCameraValueChanged(object sender, EventArgs e)
+        { 
+            defaultCameraRotation = new Vector3((float)tbCameraYaw.Value/100, (float)tbCameraPitch.Value/100, (float)tbCameraRoll.Value/100);
+            Invalidate();
+        }
+
+
         protected override void OnPaint(PaintEventArgs e)
         {
-            //матрица масштабирования
-            var scaleM = Matrix4x4.CreateScale(scale);
-            //матрица вращения
             
-            var rotateM = Matrix4x4.CreateFromYawPitchRoll(yaw, pitch, roll);
-           
-            //матрица переноса
-            var translateM = matrix.GetTranslationMatrix(position);
-            
-            //матрица проекции
             var paneXY = new Matrix4x4(
                     (float)2/100,0,0,0,
                     0,(float) 2/100,0,0,
                     0,0,(float)2/100,1,
                     0,0,0,1)
                 ;
-            //результирующая матрица
-            var m = scaleM  * translateM * rotateM;
-            m *= paneXY;
 
-            //умножаем вектора на матрицу
-            var vertexes = model.Vertexes.Select(v => Vector3.Transform(v, m)).ToList();
+            var m = matrix.GetMVPMatrix(modelScale, modelRotation,modelPosition, defaultCameraRotation,defaultCameraPosition);
+            m *= paneXY;
+            
+            // float[] w = new float[model.Vertexes.Count];
+            // for (int i = 0; i < model.Vertexes.Count; i++)
+            // {
+            //     model.Vertexes[i] = Vector4.Transform(model.Vertexes[i], m);
+            //
+            //     w[i] = model.Vertexes[i].W;
+            //     model.Vertexes[i] /= model.Vertexes[i].W;
+            // }
+            
+           // TransformNormal(model, modelParams);
+             //matrix.TransformToViewPort(model, w);
+            
+
+           var vertexes = model.Vertexes.Select(v => Vector4.Transform(v, m)).ToList();
         
-            //создаем graphicsPath
             using (var path = new GraphicsPath())
             {
                 //создаем грани
-                var prev = Vector3.Zero;
+                var prev = Vector4.Zero;
                 var prevF = 0;
                 foreach (var f in model.Fig)
                 {
                     if (f == 0) path.CloseFigure();
-                    var v = vertexes[f];
+                    var v =vertexes[f];
                     if (prevF != 0 && f != 0)
                         path.AddLine(prev.X, prev.Y, v.X, v.Y);
                     prev = v;
