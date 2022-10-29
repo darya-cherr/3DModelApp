@@ -9,7 +9,7 @@ namespace WindowsFormsApp1
     public class Model
     {
         public List<Vector4> Vertexes = new List<Vector4>();
-        public List<int> Fig = new List<int>();
+        public List<int> Polygon = new List<int>();
  
         public void LoadFromObj(TextReader tr)
         {
@@ -30,8 +30,8 @@ namespace WindowsFormsApp1
                         break;
                     case "f":
                         for (int i = 1; i < parts.Length; i++)
-                            Fig.Add(int.Parse(parts[i].Split('/')[0]));
-                        Fig.Add(0);
+                            Polygon.Add(int.Parse(parts[i].Split('/')[0]));
+                        Polygon.Add(0);
                         break;
                 }
             }

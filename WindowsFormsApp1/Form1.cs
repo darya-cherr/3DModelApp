@@ -5,12 +5,13 @@ using System.Data;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Numerics;
-
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -28,34 +29,46 @@ namespace WindowsFormsApp1
         TrackBar tbCameraRoll;
         TrackBar tbCameraPitch;
         TrackBar tbCameraYaw;
+        PictureBox pictureBox;
         Matrix matrix;
         
-        Vector3 defaultCameraPosition = new Vector3(0,0,-10);
-        Vector3 defaultCameraRotation = new Vector3(0,(float)Math.PI,(float)Math.PI);
+        Vector3 defaultCameraPosition = new Vector3(0,0,2);
+        Vector3 defaultCameraRotation = new Vector3(0, 0, 0);
        
       
         float modelScale = 1;
-        Vector3 modelPosition = new Vector3(500, 500, 500);
-        private Vector3 modelRotation = new Vector3(10, 10, 10);
+        Vector3 modelPosition = new Vector3(0, 0, 0);
+        private Vector3 modelRotation = new Vector3(0, 0, 0);
+        
         public Form1()
         {
-            
+
             InitializeComponent();
  
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint, true);
  
             Size = new Size(1000, 800);
- 
-            tbModelSize = new TrackBar { Parent = this, Maximum = 200, Left = 0, Value = 30};
+            
+            tbModelSize = new TrackBar { Parent = this, Maximum = 500, Left = 0, Value = 30};
             tbModelRoll = new TrackBar { Parent = this, Maximum = 360, Left = 110, Value = 0 };
             tbModelPitch = new TrackBar { Parent = this, Maximum = 360, Left = 220, Value = 0 };
             tbModelYaw = new TrackBar { Parent = this, Maximum = 360, Left = 330, Value = 0 };
             
            
-            tbCameraRoll = new TrackBar { Parent = this, Maximum = 500, Left = 850, Value = 0, TickFrequency = 1};
-            tbCameraPitch = new TrackBar { Parent = this, Maximum = 500, Left = 850, Top = 50,Value = 0, TickFrequency = 1};
-            tbCameraYaw = new TrackBar { Parent = this, Maximum = 500, Left = 850,Top = 100, Value = 0, TickFrequency = 1 };
+            tbCameraRoll = new TrackBar { Parent = this, Maximum = 100, Left = 850, Value = 0, TickFrequency = 1};
+            tbCameraPitch = new TrackBar { Parent = this, Maximum = 100, Left = 850, Top = 50,Value = 0, TickFrequency = 1};
+            tbCameraYaw = new TrackBar { Parent = this, Maximum = 100, Left = 850,Top = 100, Value = 0, TickFrequency = 1 };
 
+            pictureBox = new PictureBox();
+            pictureBox.Location = new System.Drawing.Point(0, 0);
+            pictureBox.Name = "pictureBox";
+            pictureBox.Size = new System.Drawing.Size(1000, 800);
+            pictureBox.BackColor = Color.White;
+            this.Controls.Add(pictureBox);
+            pictureBox.Paint += new System.Windows.Forms.PaintEventHandler(this.pictureBox_Paint);
+
+             
+            
             tbModelSize.ValueChanged += TbModelValueChanged;
             tbModelRoll.ValueChanged += TbModelValueChanged;
             tbModelPitch.ValueChanged += TbModelValueChanged;
@@ -72,12 +85,48 @@ namespace WindowsFormsApp1
             matrix = new Matrix();
  
             model = new Model();
-            model.LoadFromObj(new StreamReader("C:\\Users\\Admin\\Desktop\\cherry.obj"));
+            model.LoadFromObj(new StreamReader(@"D:\RiderProjects\WindowsFormsApp1\WindowsFormsApp1\diablo.obj"));
+        }
+
+        void pictureBox_Paint(object sender, System.Windows.Forms.PaintEventArgs e)
+        {
+            var m = matrix.GetMVPMatrix(modelScale, modelRotation,modelPosition, defaultCameraRotation,defaultCameraPosition);
+            
+            var vertexes = model.Vertexes.Select(v => Vector4.Transform(v, m)).ToList();
+            
+            vertexes = vertexes.Select(v => Vector4.Transform(v/=v.W, matrix.GetViewPortMatrix())).ToList();
+            vertexes = vertexes.Select(v => new Vector4(v.X,v.Y,v.Z,v.W)).ToList();
+            
+            using (var bmp = new Bitmap(pictureBox.Width, pictureBox.Height))
+            using (var gfx = Graphics.FromImage(bmp))
+            {
+                var prev = Vector4.Zero;
+                var prevF = 0;
+                
+                gfx.SmoothingMode = SmoothingMode.HighQuality;
+                foreach (var f in model.Polygon)
+                {
+                    if (!(f == 0)) 
+                    {
+                        var v = vertexes[f];
+                        if (prevF != 0 && f != 0)
+                            gfx.DrawLine(Pens.Black, prev.X, prev.Y, v.X, v.Y);
+                        prev = v;
+                        prevF = f;
+                    }
+                }
+                pictureBox.Image?.Dispose();
+                pictureBox.Image = (Bitmap)bmp.Clone();                   
+                pictureBox.Invalidate();
+                this.Invalidate();
+               // e.Graphics.DrawPath(Pens.Black, path);
+            }
+            
         }
         
         void TbModelValueChanged(object sender, EventArgs e)
         {
-            modelScale = tbModelSize.Value;
+            modelScale = (float)tbModelSize.Value / 100;
             modelRotation = new Vector3((float)(tbModelYaw.Value * Math.PI / 180),  (float)(tbModelPitch.Value * Math.PI / 180), (float)(tbModelRoll.Value * Math.PI / 180));
             Invalidate();
         }
@@ -88,56 +137,6 @@ namespace WindowsFormsApp1
             Invalidate();
         }
 
-
-        protected override void OnPaint(PaintEventArgs e)
-        {
-            
-            var paneXY = new Matrix4x4(
-                    (float)2/100,0,0,0,
-                    0,(float) 2/100,0,0,
-                    0,0,(float)2/100,1,
-                    0,0,0,1)
-                ;
-
-            var m = matrix.GetMVPMatrix(modelScale, modelRotation,modelPosition, defaultCameraRotation,defaultCameraPosition);
-            m *= paneXY;
-            
-            // float[] w = new float[model.Vertexes.Count];
-            // for (int i = 0; i < model.Vertexes.Count; i++)
-            // {
-            //     model.Vertexes[i] = Vector4.Transform(model.Vertexes[i], m);
-            //
-            //     w[i] = model.Vertexes[i].W;
-            //     model.Vertexes[i] /= model.Vertexes[i].W;
-            // }
-            
-           // TransformNormal(model, modelParams);
-             //matrix.TransformToViewPort(model, w);
-            
-
-           var vertexes = model.Vertexes.Select(v => Vector4.Transform(v, m)).ToList();
-        
-            using (var path = new GraphicsPath())
-            {
-                //создаем грани
-                var prev = Vector4.Zero;
-                var prevF = 0;
-                foreach (var f in model.Fig)
-                {
-                    if (f == 0) path.CloseFigure();
-                    var v =vertexes[f];
-                    if (prevF != 0 && f != 0)
-                        path.AddLine(prev.X, prev.Y, v.X, v.Y);
-                    prev = v;
-                    prevF = f;
-                }
-
-                //отрисовываем
-                e.Graphics.SmoothingMode = SmoothingMode.HighQuality;
-                e.Graphics.DrawPath(Pens.Black, path);
-            }
-        }
-        
     }
     
     

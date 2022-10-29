@@ -89,7 +89,6 @@
       <Content Include="diablo.obj" />
       <Content Include="iphone.obj" />
       <Content Include="pumpkin.obj" />
-      <Content Include="RubixCube.obj" />
     </ItemGroup>
     <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
