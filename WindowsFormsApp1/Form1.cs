@@ -49,7 +49,7 @@ namespace WindowsFormsApp1
  
             Size = new Size(1000, 800);
             
-            tbModelSize = new TrackBar { Parent = this, Maximum = 500, Left = 0, Value = 30};
+            tbModelSize = new TrackBar { Parent = this, Maximum = 80, Left = 0, Value = 20};
             tbModelRoll = new TrackBar { Parent = this, Maximum = 360, Left = 110, Value = 0 };
             tbModelPitch = new TrackBar { Parent = this, Maximum = 360, Left = 220, Value = 0 };
             tbModelYaw = new TrackBar { Parent = this, Maximum = 360, Left = 330, Value = 0 };
@@ -88,6 +88,12 @@ namespace WindowsFormsApp1
             model.LoadFromObj(new StreamReader(@"D:\RiderProjects\WindowsFormsApp1\WindowsFormsApp1\diablo.obj"));
         }
 
+        int round(float n)
+        {
+            if (n - (int)n < 0.5)
+                return (int)n;
+            return (int)(n + 1);
+        }
         void pictureBox_Paint(object sender, System.Windows.Forms.PaintEventArgs e)
         {
             var m = matrix.GetMVPMatrix(modelScale, modelRotation,modelPosition, defaultCameraRotation,defaultCameraPosition);
@@ -98,30 +104,48 @@ namespace WindowsFormsApp1
             vertexes = vertexes.Select(v => new Vector4(v.X,v.Y,v.Z,v.W)).ToList();
             
             using (var bmp = new Bitmap(pictureBox.Width, pictureBox.Height))
-            using (var gfx = Graphics.FromImage(bmp))
             {
                 var prev = Vector4.Zero;
                 var prevF = 0;
                 
-                gfx.SmoothingMode = SmoothingMode.HighQuality;
                 foreach (var f in model.Polygon)
                 {
-                    if (!(f == 0)) 
-                    {
-                        var v = vertexes[f];
+                    var v = vertexes[f];
                         if (prevF != 0 && f != 0)
-                            gfx.DrawLine(Pens.Black, prev.X, prev.Y, v.X, v.Y);
+                        {
+                            int dx = (int)(v.X - prev.X);
+                            int dy = (int)(v.Y - prev.Y);
+ 
+                            int l;
+ 
+                            // If dx > dy we will take step as dx
+                            // else we will take step as dy to draw the complete
+                            // line
+                            if (Math.Abs(dx) > Math.Abs(dy))
+                                l = Math.Abs(dx);
+                            else
+                                l = Math.Abs(dy);
+ 
+                            // Calculate x-increment and y-increment for each step
+                            float x_incr = (float)dx / l;
+                            float y_incr = (float)dy / l;
+ 
+                            // Take the initial points as x and y
+                            float x = prev.X;
+                            float y = prev.Y;
+ 
+                            for (int i = 0; i < l; i++) {
+                                bmp.SetPixel(round(x), round(y), Color.Black);
+                                x += x_incr;
+                                y += y_incr;
+                            }
+                        }
                         prev = v;
                         prevF = f;
-                    }
                 }
                 pictureBox.Image?.Dispose();
                 pictureBox.Image = (Bitmap)bmp.Clone();                   
-                pictureBox.Invalidate();
-                this.Invalidate();
-               // e.Graphics.DrawPath(Pens.Black, path);
             }
-            
         }
         
         void TbModelValueChanged(object sender, EventArgs e)
